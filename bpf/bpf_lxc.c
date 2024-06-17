@@ -725,7 +725,9 @@ pass_to_stack:
 	} else
 # endif /* ENABLE_IPSEC */
 #endif /* TUNNEL_MODE */
-	{
+	if (ct_state->from_ingress_proxy) {
+		ctx->mark = MARK_MAGIC_TO_PROXY;
+	} else {
 #ifdef ENABLE_IDENTITY_MARK
 		/* Always encode the source identity when passing to the stack.
 		 * If the stack hairpins the packet back to a local endpoint the
@@ -1286,7 +1288,9 @@ pass_to_stack:
 	} else
 # endif /* ENABLE_IPSEC */
 #endif /* TUNNEL_MODE */
-	{
+	if (ct_state->from_ingress_proxy) {
+		ctx->mark = MARK_MAGIC_TO_PROXY;
+	} else {
 #ifdef ENABLE_IDENTITY_MARK
 		/* Always encode the source identity when passing to the stack.
 		 * If the stack hairpins the packet back to a local endpoint the
@@ -1500,7 +1504,7 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int ifindex, __u32 src_
 	struct ipv6_ct_tuple *tuple;
 	int ret, verdict, l4_off, zero = 0;
 	struct ct_buffer6 *ct_buffer;
-	bool skip_ingress_proxy = false;
+	bool from_ingress_proxy = false;
 	struct trace_ctx trace;
 	union v6addr orig_sip;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
@@ -1514,7 +1518,7 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int ifindex, __u32 src_
 	/* If packet is coming from the ingress proxy we have to skip
 	 * redirection to the ingress proxy as we would loop forever.
 	 */
-	skip_ingress_proxy = tc_index_from_ingress_proxy(ctx);
+	from_ingress_proxy = tc_index_from_ingress_proxy(ctx);
 
 	ct_buffer = map_lookup_elem(&CT_TAIL_CALL_BUFFER6, &zero);
 	if (!ct_buffer)
@@ -1563,7 +1567,7 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int ifindex, __u32 src_
 		goto skip_policy_enforcement;
 	}
 
-	if (skip_ingress_proxy)
+	if (from_ingress_proxy)
 		goto skip_policy_enforcement;
 
 	verdict = policy_can_ingress6(ctx, &POLICY_MAP, tuple, l4_off, src_label,
@@ -1598,6 +1602,7 @@ skip_policy_enforcement:
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.from_tunnel = from_tunnel;
 		ct_state_new.proxy_redirect = *proxy_port > 0;
+		ct_state_new.from_ingress_proxy = from_ingress_proxy;
 
 		/* ext_err may contain a value from __policy_can_access, and
 		 * ct_create6 overwrites it only if it returns an error itself.
@@ -1809,7 +1814,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, int ifindex, __u32 src_la
 {
 	struct ct_state *ct_state, ct_state_new = {};
 	struct ipv4_ct_tuple *tuple;
-	bool skip_ingress_proxy = false;
+	bool from_ingress_proxy = false;
 	bool is_untracked_fragment = false;
 	struct ct_buffer4 *ct_buffer;
 	struct trace_ctx trace;
@@ -1825,7 +1830,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, int ifindex, __u32 src_la
 	/* If packet is coming from the ingress proxy we have to skip
 	 * redirection to the ingress proxy as we would loop forever.
 	 */
-	skip_ingress_proxy = tc_index_from_ingress_proxy(ctx);
+	from_ingress_proxy = tc_index_from_ingress_proxy(ctx);
 
 	orig_sip = ip4->saddr;
 
@@ -1888,7 +1893,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, int ifindex, __u32 src_la
 		goto skip_policy_enforcement;
 	}
 
-	if (skip_ingress_proxy)
+	if (from_ingress_proxy)
 		goto skip_policy_enforcement;
 
 #if defined(ENABLE_PER_PACKET_LB) && !defined(DISABLE_LOOPBACK_LB)
@@ -1947,6 +1952,7 @@ skip_policy_enforcement:
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.from_tunnel = from_tunnel;
 		ct_state_new.proxy_redirect = *proxy_port > 0;
+		ct_state_new.from_ingress_proxy = from_ingress_proxy;
 
 		/* ext_err may contain a value from __policy_can_access, and
 		 * ct_create4 overwrites it only if it returns an error itself.
