@@ -725,9 +725,12 @@ pass_to_stack:
 	} else
 # endif /* ENABLE_IPSEC */
 #endif /* TUNNEL_MODE */
+#ifdef ENABLE_REPLY_TO_PROXY_MARK
 	if (ct_state->from_ingress_proxy) {
 		ctx->mark = MARK_MAGIC_TO_PROXY;
-	} else {
+	} else
+#endif /* ENABLE_REPLY_TO_PROXY_MARK */
+	{
 #ifdef ENABLE_IDENTITY_MARK
 		/* Always encode the source identity when passing to the stack.
 		 * If the stack hairpins the packet back to a local endpoint the
@@ -1288,9 +1291,12 @@ pass_to_stack:
 	} else
 # endif /* ENABLE_IPSEC */
 #endif /* TUNNEL_MODE */
+#ifdef ENABLE_REPLY_TO_PROXY_MARK
 	if (ct_state->from_ingress_proxy) {
 		ctx->mark = MARK_MAGIC_TO_PROXY;
-	} else {
+	} else
+#endif /* ENABLE_REPLY_TO_PROXY_MARK */
+	{
 #ifdef ENABLE_IDENTITY_MARK
 		/* Always encode the source identity when passing to the stack.
 		 * If the stack hairpins the packet back to a local endpoint the
